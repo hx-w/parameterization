@@ -197,8 +197,8 @@ namespace RenderSpace {
             m_weights[OrderedEdge(vi, vj)] = _weight;
             // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian matrix的计算
             // 默认值是0
-            m_weights[OrderedEdge(vi, vi)] += _weight;
-            m_weights[OrderedEdge(vj, vj)] += _weight;
+            m_weights_diag[vi] += _weight;
+            m_weights_diag[vj] += _weight;
         }
     }
 
@@ -370,7 +370,12 @@ namespace RenderSpace {
 
     float Parameterization::_Laplacian_val(int i, int j) {
         if (i > j) swap(i, j);
-        return (i == j ? 1 : -1) * m_weights[OrderedEdge(i, j)];
+        if (i != j) {
+            return -m_weights[OrderedEdge(i, j)];
+        }
+        else {
+            return m_weights_diag[i];
+        }
     }
 
     float Parameterization::_cot(float rad) const {
