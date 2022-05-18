@@ -79,6 +79,15 @@ namespace RenderSpace {
             const float epsilon // 允许的误差
         );
 
+        // 通过vt_inner, vt_bound, param_inner, param_bound
+        // 构建mesh:tar的拓扑结构
+        void _build_mesh(
+            const std::vector<int>& vt_inner,
+            const std::vector<int>& vt_bound,
+            const std::vector<vec2>& param_inner,
+            const std::vector<vec2>& param_bound
+        );
+
         float _Laplacian_val(int i, int j);
 
         // cotangent

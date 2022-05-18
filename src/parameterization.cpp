@@ -39,6 +39,8 @@ namespace RenderSpace {
         vector<vec2> param_inner;
         cout << "solving Laplacian equation" << endl;
         _solve_Laplacian_equation(vt_inner, vt_inner, param_inner, vt_inner, vt_bound, param_bound);
+        cout << "building mesh" << endl;
+        _build_mesh(vt_inner, vt_bound, param_inner, param_bound);
     }
 
     void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound, vector<OrderedEdge>& edge_inner) {
@@ -321,6 +323,48 @@ namespace RenderSpace {
             if (_residual < epsilon) {
                 break;
             }
+        }
+    }
+
+    void Parameterization::_build_mesh(
+        const vector<int>& vt_inner,
+        const vector<int>& vt_bound,
+        const vector<vec2>& param_inner,
+        const vector<vec2>& param_bound
+    ) {
+        cout << "[DEBUG] 正在构建倒排索引" << endl;
+        // 对vt_inner, vt_bound构建倒排索引
+        map<int, int> vt_inner_idx;
+        map<int, int> vt_bound_idx;
+        for (int i = 0; i < vt_inner.size(); ++i) {
+            vt_inner_idx[vt_inner[i]] = i;
+        }
+        for (int i = 0; i < vt_bound.size(); ++i) {
+            vt_bound_idx[vt_bound[i]] = i;
+        }
+
+        auto& tar_vertices = m_tar->get_vertices();
+        auto& tar_tris = m_tar->get_triangles();
+        const auto& ori_vertices = m_ori->get_vertices();
+        const auto& ori_tris = m_ori->get_triangles();
+        tar_vertices.clear();
+
+        // 三角面片索引应相同
+        tar_tris.assign(ori_tris.begin(), ori_tris.end());
+
+        // 重设顶点位置
+        cout << "[INFO] 正在重设顶点位置" << endl;
+        const int sz = ori_vertices.size();
+        for (int i = 0; i < sz; ++i) {
+            vec2 _v(0.0, 0.0);
+            if (vt_inner_idx.find(i) != vt_inner_idx.end()) {
+                _v = param_inner[vt_inner_idx[i]];
+            } else if (vt_bound_idx.find(i) != vt_bound_idx.end()) {
+                _v = param_bound[vt_bound_idx[i]];
+            } else {
+                cout << "[ERROR] 发现非法顶点索引" << endl;
+            }
+            tar_vertices.push_back(Vertex(vec3(_v.first, _v.second, 0.0), vec3(1.0), vec3(1.0)));
         }
     }
 
