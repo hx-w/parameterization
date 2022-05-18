@@ -175,7 +175,7 @@ namespace RenderSpace {
         }
 
         // weights只需从inner构造
-        for (auto& edge : edge_inner) {
+        for (auto edge : edge_inner) {
             int vi = edge.first;
             int vj = edge.second;
             vector<int> adj_vt;
@@ -194,7 +194,8 @@ namespace RenderSpace {
             float cot_ij = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vl].Position));
             float cot_ji = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vk].Position));
             float _weight = (cot_ij + cot_ji) / 2;
-            m_weights[OrderedEdge(vi, vj)] = _weight;
+            // m_weights[OrderedEdge(vi, vj)] = _weight;
+            m_weights.emplace_back(pair<OrderedEdge, float>(edge, _weight));
             // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian matrix的计算
             // 默认值是0
             m_weights_diag[vi] += _weight;
@@ -269,7 +270,7 @@ namespace RenderSpace {
         // 令 _value_mat = -L(r2, c2) * f2
         vector<vec2> _value_mat;
         for (int ir = 0; ir < mat2_row_count; ++ir) {
-            if (ir % 1000 == 0) {
+            if (ir % 10 == 0) {
                 cout << "iter: " << ir << " / " << mat2_row_count << endl;
             }
             vec2 _row_vec(0.0, 0.0);
@@ -370,12 +371,18 @@ namespace RenderSpace {
 
     float Parameterization::_Laplacian_val(int i, int j) {
         if (i > j) swap(i, j);
+        OrderedEdge _e(i, j);
         if (i != j) {
-            return -m_weights[OrderedEdge(i, j)];
+            for (auto _it : m_weights) {
+                if (_it.first == _e) {
+                    return _it.second;
+                }
+            }
         }
         else {
             return m_weights_diag[i];
         }
+        return 0;
     }
 
     float Parameterization::_cot(float rad) const {
