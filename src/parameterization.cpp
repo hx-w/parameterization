@@ -1,6 +1,7 @@
 ﻿#include "parameterization.h"
 #include <set>
 #include <map>
+#include <malloc.h>
 #include <iostream>
 #include <algorithm>
 #include <utility>
@@ -195,7 +196,7 @@ namespace RenderSpace {
             float cot_ji = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vk].Position));
             float _weight = (cot_ij + cot_ji) / 2;
             // m_weights[OrderedEdge(vi, vj)] = _weight;
-            m_weights.emplace_back(pair<OrderedEdge, float>(edge, _weight));
+            m_weights[edge] = _weight;
             // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian matrix的计算
             // 默认值是0
             m_weights_diag[vi] += _weight;
@@ -270,7 +271,7 @@ namespace RenderSpace {
         // 令 _value_mat = -L(r2, c2) * f2
         vector<vec2> _value_mat;
         for (int ir = 0; ir < mat2_row_count; ++ir) {
-            if (ir % 10 == 0) {
+            if (ir % 1000 == 0) {
                 cout << "iter: " << ir << " / " << mat2_row_count << endl;
             }
             vec2 _row_vec(0.0, 0.0);
@@ -279,6 +280,7 @@ namespace RenderSpace {
                 _row_vec = vec2(_row_vec.first + f_2[ic].first * _v, _row_vec.second + f_2[ic].second * _v);
             }
             _value_mat.push_back(vec2(-_row_vec.first, -_row_vec.second));
+            malloc_trim(0);
         }
         // 设置迭代初值 (0.0, 0.0)
         f_1.resize(mat1_col_count, vec2(0.0f, 0.0f));
@@ -371,13 +373,8 @@ namespace RenderSpace {
 
     float Parameterization::_Laplacian_val(int i, int j) {
         if (i > j) swap(i, j);
-        OrderedEdge _e(i, j);
         if (i != j) {
-            for (auto _it : m_weights) {
-                if (_it.first == _e) {
-                    return _it.second;
-                }
-            }
+            return -m_weights[OrderedEdge(i, j)];
         }
         else {
             return m_weights_diag[i];

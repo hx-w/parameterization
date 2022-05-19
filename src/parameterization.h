@@ -99,7 +99,7 @@ namespace RenderSpace {
         // 中间结果
         float m_bound_length; // 边缘总长度
         // std::map<OrderedEdge, float> m_weights; // 边缘权重
-        std::vector<std::pair<OrderedEdge, float>> m_weights;
+        std::map<OrderedEdge, float> m_weights;
         std::map<int, float> m_weights_diag; // 边缘对角线权重
 
     private:
