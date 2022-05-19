@@ -176,8 +176,8 @@ namespace RenderSpace {
 
         // weights只需从inner构造
         for (auto edge : edge_inner) {
-            int vi = edge.first;
-            int vj = edge.second;
+            int vi = min(edge.first, edge.second);
+            int vj = max(edge.first, edge.second);
             vector<int> adj_vt;
             for (auto& adj_v : adj_list[vi]) {
                 // 判断(adj_v, vj, vi)是否构成三角形
@@ -194,8 +194,8 @@ namespace RenderSpace {
             float cot_ij = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vl].Position));
             float cot_ji = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vk].Position));
             float _weight = (cot_ij + cot_ji) / 2;
-            // m_weights[OrderedEdge(vi, vj)] = _weight;
-            m_weights[edge] = _weight;
+            m_weights[OrderedEdge(vi, vj)] = _weight;
+            // m_weights.insert(make_pair(OrderedEdge(vi, vj), _weight));
             // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian matrix的计算
             // 默认值是0
             m_weights_diag[vi] += _weight;
@@ -374,7 +374,12 @@ namespace RenderSpace {
     float Parameterization::_Laplacian_val(int i, int j) {
         if (i > j) swap(i, j);
         if (i != j) {
-            return -m_weights.find(OrderedEdge(i, j))->second;
+            auto iter = m_weights.find(OrderedEdge(i, j));
+            if (iter == m_weights.end()) {
+                return 0.0f;
+            } else {
+                return iter->second;
+            }
         }
         else {
             return m_weights_diag.find(i)->second;
