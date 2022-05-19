@@ -1,7 +1,6 @@
 ﻿#include "parameterization.h"
 #include <set>
 #include <map>
-#include <malloc.h>
 #include <iostream>
 #include <algorithm>
 #include <utility>
@@ -280,7 +279,6 @@ namespace RenderSpace {
                 _row_vec = vec2(_row_vec.first + f_2[ic].first * _v, _row_vec.second + f_2[ic].second * _v);
             }
             _value_mat.push_back(vec2(-_row_vec.first, -_row_vec.second));
-            malloc_trim(0);
         }
         // 设置迭代初值 (0.0, 0.0)
         f_1.resize(mat1_col_count, vec2(0.0f, 0.0f));
@@ -304,10 +302,12 @@ namespace RenderSpace {
 
         const int _max_iter = 100; // 最大迭代次数
         for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
-            cout << "iteration: " << _iter_count << " / " << _max_iter << endl;
             float _residual = 0.0f;
             // 对于x_{f_max}^{_iter_count}
             for (int ir = 0; ir < f_max; ++ir) {
+                if (ir % 1000 == 0) {
+                    cout << "GAUSS iteration: " << _iter_count << " / " << _max_iter << " ir: " << ir << " / " << f_max << endl;
+                }
                 vec2 _val(0.0, 0.0);
                 for (int ic = 0; ic < f_max; ++ic) {
                     if (ir == ic) continue;
@@ -374,10 +374,10 @@ namespace RenderSpace {
     float Parameterization::_Laplacian_val(int i, int j) {
         if (i > j) swap(i, j);
         if (i != j) {
-            return -m_weights[OrderedEdge(i, j)];
+            return -m_weights.find(OrderedEdge(i, j))->second;
         }
         else {
-            return m_weights_diag[i];
+            return m_weights_diag.find(i)->second;
         }
         return 0;
     }
