@@ -300,7 +300,7 @@ namespace RenderSpace {
         assert(row_max == col_max);
         assert(row_max == f_max);
 
-        const int _max_iter = 100; // 最大迭代次数
+        const int _max_iter = 5; // 最大迭代次数
         for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
             float _residual = 0.0f;
             // 对于x_{f_max}^{_iter_count}

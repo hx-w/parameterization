@@ -86,7 +86,8 @@ namespace RenderSpace {
         ofstream ofs(filename);
         // save obj file by m_vertices and m_triangles
         for (auto& v : m_vertices) {
-            ofs << "v " << v.Position.x() << " " << v.Position.y() << " " << v.Position.z() << endl;
+            // set precision 6
+            ofs << "v " << setprecision(6) << v.Position.x() << " " << v.Position.y() << " " << v.Position.z() << endl;
         }
         for (auto& tri : m_triangles) {
             ofs << "f " << tri.VertexIdx.x() + 1 << " " << tri.VertexIdx.y() + 1 << " " << tri.VertexIdx.z() + 1 << endl;
