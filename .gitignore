@@ -1,5 +1,7 @@
 main
+test.sh
 .vscode/
+*.bak
 # Prerequisites
 *.d
 

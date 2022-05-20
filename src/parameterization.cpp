@@ -6,6 +6,7 @@
 #include <utility>
 #include <cassert>
 #include <unordered_set>
+#include <omp.h>
 
 using namespace std;
 
@@ -130,7 +131,7 @@ namespace RenderSpace {
         for (auto& edge : edge_bound) {
             _accumulate_length += vertices[edge.first].Position.dist(vertices[edge.second].Position);
             float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
-            param_bound.push_back(vec2(sin(_theta), cos(_theta)));
+            param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
         }
     }
 
@@ -165,17 +166,16 @@ namespace RenderSpace {
          */
         // 构造邻接表 快速索引
         unordered_map<int, set<int>> adj_list;
-        for (auto& edge : edge_bound) {
-            adj_list[edge.first].insert(edge.second);
-            adj_list[edge.second].insert(edge.first);
-        }
-        for (auto& edge : edge_inner) {
+        vector<OrderedEdge> tot_edge;
+        tot_edge.insert(tot_edge.begin(), edge_bound.begin(), edge_bound.end());
+        tot_edge.insert(tot_edge.begin(), edge_inner.begin(), edge_inner.end());
+        for (auto& edge : tot_edge) {
             adj_list[edge.first].insert(edge.second);
             adj_list[edge.second].insert(edge.first);
         }
 
-        // weights只需从inner构造
-        for (auto edge : edge_inner) {
+        // weights只需从inner构造 [X] bound 也需要
+        for (auto edge : tot_edge) {
             int vi = min(edge.first, edge.second);
             int vj = max(edge.first, edge.second);
             vector<int> adj_vt;
@@ -185,17 +185,22 @@ namespace RenderSpace {
                     adj_vt.push_back(adj_v);
                 }
             }
-            if (adj_vt.size() != 2) {
-                cout << "Error: edge_inner " << vi << " " << vj << endl;
+            if (adj_vt.size() > 2) {
+                cout << "Error: edge_inner " << vi << " " << vj << ": " << adj_vt.size() << endl;
                 continue;
             }
-            int vk = adj_vt[0];
-            int vl = adj_vt[1];
-            float cot_ij = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vl].Position));
-            float cot_ji = _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vk].Position));
-            float _weight = (cot_ij + cot_ji) / 2;
+
+            float _weight = 0.0f;
+            for (auto vk : adj_vt) {
+                _weight += _cot(_angle_between(vertices[vi].Position, vertices[vj].Position, vertices[vk].Position));
+            }
+
+            _weight /= adj_vt.size();
+
+            if (fabs(_weight) < 1e-6) {
+                cout << "too low: edge_inner " << vi << " " << vj << ": " << _weight << endl;
+            }
             m_weights[OrderedEdge(vi, vj)] = _weight;
-            // m_weights.insert(make_pair(OrderedEdge(vi, vj), _weight));
             // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian matrix的计算
             // 默认值是0
             m_weights_diag[vi] += _weight;
@@ -268,6 +273,7 @@ namespace RenderSpace {
         assert(mat2_col_count == f_2.size());
         // L(r1, c1) * f1 = -L(r2, c2) * f2
         // 令 _value_mat = -L(r2, c2) * f2
+
         vector<vec2> _value_mat;
         for (int ir = 0; ir < mat2_row_count; ++ir) {
             if (ir % 1000 == 0) {
@@ -303,10 +309,12 @@ namespace RenderSpace {
         const int _max_iter = 5; // 最大迭代次数
         for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
             float _residual = 0.0f;
+            vector<vec2> _new_f(f);
             // 对于x_{f_max}^{_iter_count}
+// #pragma omp parallel for reduction(+:_residual)
             for (int ir = 0; ir < f_max; ++ir) {
                 if (ir % 1000 == 0) {
-                    cout << "GAUSS iteration: " << _iter_count << " / " << _max_iter << " ir: " << ir << " / " << f_max << endl;
+                    cout << "GAUSS: " << _iter_count << " / " << _max_iter << "   " << ir << " / " << f_max << endl;
                 }
                 vec2 _val(0.0, 0.0);
                 for (int ic = 0; ic < f_max; ++ic) {
@@ -314,14 +322,15 @@ namespace RenderSpace {
                     float _lp = _Laplacian_val(r_idx[ir], c_idx[ic]);
                     _val = vec2(_val.first + f[ic].first * _lp, _val.second + f[ic].second * _lp);
                 }
+                float _iv = -1.0 / _Laplacian_val(r_idx[ir], c_idx[ir]);
                 _val = vec2(_val.first - b[ir].first, _val.second - b[ir].second);
-                float _iv = 1.0 / _Laplacian_val(r_idx[ir], c_idx[ir]);
                 _val = vec2(_val.first * _iv, _val.second * _iv);
                 float _diff_x = _val.first - f[ir].first;
                 float _diff_y = _val.second - f[ir].second;
-                _residual = max(_residual, sqrt(_diff_x * _diff_x + _diff_y * _diff_y));
-                f[ir] = _val;
+                _residual += sqrt(_diff_x * _diff_x + _diff_y * _diff_y);
+                _new_f[ir] = _val;
             }
+            f.assign(_new_f.begin(), _new_f.end());
             cout << "residual: " << _residual << endl;
             if (_residual < epsilon) {
                 break;
@@ -378,7 +387,7 @@ namespace RenderSpace {
             if (iter == m_weights.end()) {
                 return 0.0f;
             } else {
-                return iter->second;
+                return -iter->second;
             }
         }
         else {
@@ -388,7 +397,7 @@ namespace RenderSpace {
     }
 
     float Parameterization::_cot(float rad) const {
-        return 1.0f / tan(rad);
+        return cos(rad) / sin(rad);
     }
 
     float Parameterization::_angle_between(
