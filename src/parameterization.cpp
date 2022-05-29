@@ -344,7 +344,7 @@ namespace RenderSpace {
         const vector<vec2>& param_inner,
         const vector<vec2>& param_bound
     ) {
-        cout << "[DEBUG] 正在构建倒排索引" << endl;
+        cout << "[DEBUG] rebuilding" << endl;
         // 对vt_inner, vt_bound构建倒排索引
         map<int, int> vt_inner_idx;
         map<int, int> vt_bound_idx;
@@ -365,7 +365,6 @@ namespace RenderSpace {
         tar_tris.assign(ori_tris.begin(), ori_tris.end());
 
         // 重设顶点位置
-        cout << "[INFO] 正在重设顶点位置" << endl;
         const int sz = ori_vertices.size();
         for (int i = 0; i < sz; ++i) {
             vec2 _v(0.0, 0.0);
