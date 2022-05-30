@@ -12,7 +12,7 @@
 namespace RenderSpace {
     struct pair_hash {
         template <class T1, class T2>
-        std::size_t operator() (const std::pair<T1,T2> &p) const {
+        std::size_t operator() (const std::pair<T1, T2> &p) const {
             auto h1 = std::hash<T1>{}(p.first);
             auto h2 = std::hash<T2>{}(p.second);
             return h1 ^ h2;  
@@ -21,9 +21,9 @@ namespace RenderSpace {
 
     struct trias_hash {
         std::size_t operator() (const Triangle& tri) const {
-            auto h1 = std::hash<uint32_t>{}(tri.VertexIdx.x());
-            auto h2 = std::hash<uint32_t>{}(tri.VertexIdx.y());
-            auto h3 = std::hash<uint32_t>{}(tri.VertexIdx.z());
+            auto h1 = std::hash<uint32_t>{}(tri.VertexIdx.x);
+            auto h2 = std::hash<uint32_t>{}(tri.VertexIdx.y);
+            auto h3 = std::hash<uint32_t>{}(tri.VertexIdx.z);
             return h1 ^ h2 ^ h3;
         }
     };
@@ -43,7 +43,7 @@ namespace RenderSpace {
         // 对边缘边，从第一个边缘点开始 按拓扑关系进行重新排序
         void _topology_reorder(std::vector<OrderedEdge>&);
         // 将排序后的边缘边参数化到二维单位圆边缘
-        void _parameterize_bound(std::vector<OrderedEdge>&, std::vector<vec2>&);
+        void _parameterize_bound(std::vector<OrderedEdge>&, std::vector<glm::vec2>&);
         // 初始化 计算weights
         void _init_weights(
             const std::vector<OrderedEdge>&,
@@ -65,18 +65,18 @@ namespace RenderSpace {
         void _solve_Laplacian_equation(
             const std::vector<int>& r_idx_1,
             const std::vector<int>& c_idx_1,
-            std::vector<vec2>& f_1,  // 结果保存在这里
+            std::vector<glm::vec2>& f_1,  // 结果保存在这里
             const std::vector<int>& r_idx_2,
             const std::vector<int>& c_idx_2,
-            const std::vector<vec2>& f_2
+            const std::vector<glm::vec2>& f_2
         );
 
         // Gauss-Seidel 迭代求解方程组
         void Gauss_Seidel_Iteration(
             const std::vector<int>& r_idx,
             const std::vector<int>& c_idx,
-            std::vector<vec2>& f,
-            const std::vector<vec2>& b,
+            std::vector<glm::vec2>& f,
+            const std::vector<glm::vec2>& b,
             const float epsilon // 允许的误差
         );
 
@@ -85,15 +85,15 @@ namespace RenderSpace {
         void _build_mesh(
             const std::vector<int>& vt_inner,
             const std::vector<int>& vt_bound,
-            const std::vector<vec2>& param_inner,
-            const std::vector<vec2>& param_bound
+            const std::vector<glm::vec2>& param_inner,
+            const std::vector<glm::vec2>& param_bound
         );
 
         float _Laplacian_val(int i, int j);
 
         // cotangent
         float _cot(float) const;
-        float _angle_between(const vec3&, const vec3&, const vec3&) const;
+        float _angle_between(const glm::vec3&, const glm::vec3&, const glm::vec3&) const;
 
     private:
         // 中间结果

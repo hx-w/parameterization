@@ -9,6 +9,7 @@
 #include <utility>
 
 using namespace std;
+using namespace glm;
 
 namespace RenderSpace {
 Parameterization::Parameterization(Mesh* ori, Mesh* tar)
@@ -55,8 +56,8 @@ void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound,
     const auto& trias = m_ori->get_triangles();
     for (auto& tri : trias) {
         for (int i = 0; i < 3; ++i) {
-            int vidx = min(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
-            int vidx_next = max(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
+            int vidx = std::min(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
+            int vidx_next = std::max(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
             OrderedEdge edge(vidx, vidx_next);
             if (edge_count_map.find(edge) == edge_count_map.end()) {
                 edge_count_map[edge] = 1;
@@ -113,7 +114,7 @@ void Parameterization::_topology_reorder(vector<OrderedEdge>& edge_bound) {
         }
         edge_bound_reorder.push_back(OrderedEdge(vidx, vidx_next));
         m_bound_length +=
-            vertices[vidx].Position.dist(vertices[vidx_next].Position);
+            length(vertices[vidx].Position - vertices[vidx_next].Position);
         vidx = vidx_next;
     }
     edge_bound.swap(edge_bound_reorder);
@@ -134,7 +135,7 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
     float _accumulate_length = 0.0;
     for (auto& edge : edge_bound) {
         _accumulate_length +=
-            vertices[edge.first].Position.dist(vertices[edge.second].Position);
+            length(vertices[edge.first].Position - vertices[edge.second].Position);
         // float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
         // param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
 
@@ -143,17 +144,17 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
         vec2 bound_point(0.0, 0.0);
         float ratio = _accumulate_length / m_bound_length;
         if (ratio < 0.25) {
-            bound_point.first = -(scale / 2) + scale * (ratio / 0.25);
-            bound_point.second = -(scale / 2);
+            bound_point.x = -(scale / 2) + scale * (ratio / 0.25);
+            bound_point.y = -(scale / 2);
         } else if (ratio < 0.5) {
-            bound_point.first = (scale / 2);
-            bound_point.second = -(scale / 2) + scale * ((ratio - 0.25) / 0.25);
+            bound_point.x = (scale / 2);
+            bound_point.y = -(scale / 2) + scale * ((ratio - 0.25) / 0.25);
         } else if (ratio < 0.75) {
-            bound_point.first = (scale / 2) - scale * ((ratio - 0.5) / 0.25);
-            bound_point.second = (scale / 2);
+            bound_point.x = (scale / 2) - scale * ((ratio - 0.5) / 0.25);
+            bound_point.y = (scale / 2);
         } else {
-            bound_point.first = -(scale / 2);
-            bound_point.second = (scale / 2) - scale * ((ratio - 0.75) / 0.25);
+            bound_point.x = -(scale / 2);
+            bound_point.y = (scale / 2) - scale * ((ratio - 0.75) / 0.25);
         }
         param_bound.push_back(bound_point);
     }
@@ -199,8 +200,8 @@ void Parameterization::_init_weights(const vector<OrderedEdge>& edge_bound,
 
     // weights只需从inner构造 [X] bound 也需要
     for (auto edge : tot_edge) {
-        int vi = min(edge.first, edge.second);
-        int vj = max(edge.first, edge.second);
+        int vi = std::min(edge.first, edge.second);
+        int vj = std::max(edge.first, edge.second);
         vector<int> adj_vt;
         for (auto& adj_v : adj_list[vi]) {
             // 判断(adj_v, vj, vi)是否构成三角形
@@ -305,10 +306,9 @@ void Parameterization::_solve_Laplacian_equation(
         vec2 _row_vec(0.0, 0.0);
         for (int ic = 0; ic < mat2_col_count; ++ic) {
             float _v = _Laplacian_val(r_idx_2[ir], c_idx_2[ic]);
-            _row_vec = vec2(_row_vec.first + f_2[ic].first * _v,
-                            _row_vec.second + f_2[ic].second * _v);
+            _row_vec += _v * f_2[ic];
         }
-        _value_mat.push_back(vec2(-_row_vec.first, -_row_vec.second));
+        _value_mat.push_back(-_row_vec);
     }
     // 设置迭代初值 (0.0, 0.0)
     f_1.resize(mat1_col_count, vec2(0.5f, 0.5f));
@@ -342,16 +342,11 @@ void Parameterization::Gauss_Seidel_Iteration(const vector<int>& r_idx,
                 if (ir == ic)
                     continue;
                 float _lp = _Laplacian_val(r_idx[ir], c_idx[ic]);
-                _val = vec2(_val.first + f[ic].first * _lp,
-                            _val.second + f[ic].second * _lp);
+                _val += _lp * f[ic];
             }
             float _iv = -1.0 / _Laplacian_val(r_idx[ir], c_idx[ir]);
-            // cout << "iv: " << _iv << "    b: (" << b[ir].first << ", " << b[ir].second << ")   _val: (" << _val.first << ", " << _val.second << ")" << endl;
-            _val = vec2(_val.first - b[ir].first, _val.second - b[ir].second);
-            _val = vec2(_val.first * _iv, _val.second * _iv);
-            float _diff_x = _val.first - f[ir].first;
-            float _diff_y = _val.second - f[ir].second;
-            _residual += sqrt(_diff_x * _diff_x + _diff_y * _diff_y);
+            _val = (_val - b[ir]) * _iv;
+            _residual += sqrt(length(f[ir] - _val));
             _new_f[ir] = _val;
         }
         f.assign(_new_f.begin(), _new_f.end());
@@ -398,7 +393,7 @@ void Parameterization::_build_mesh(const vector<int>& vt_inner,
             cout << "[ERROR] 发现非法顶点索引" << endl;
         }
         tar_vertices.push_back(
-            Vertex(vec3(_v.first, _v.second, 0.0), vec3(1.0), vec3(1.0)));
+            Vertex(vec3(_v.x, _v.y, 0.0), vec3(1.0), vec3(1.0)));
     }
 }
 
@@ -425,8 +420,11 @@ float Parameterization::_cot(float rad) const {
 float Parameterization::_angle_between(const vec3& va,
                                        const vec3& vb,
                                        const vec3& ori) const {
-    vec3 da = (va - ori).normalize();
-    vec3 db = (vb - ori).normalize();
-    return acos(da.dot(db));
+    // calculate angle between va-ori and vb-ori by glm
+    vec3 _va = normalize(va - ori);
+    vec3 _vb = normalize(vb - ori);
+    float _cos = dot(_va, _vb);
+    float _rad = acos(_cos);
+    return _rad;
 }
 }  // namespace RenderSpace

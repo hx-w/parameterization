@@ -4,6 +4,7 @@
 #include <sstream>
 
 using namespace std;
+using namespace glm;
 
 namespace RenderSpace {
     Mesh::~Mesh() {
@@ -66,17 +67,13 @@ namespace RenderSpace {
         // 计算法线
         for (int i = 0; i < m_triangles.size(); ++i) {
             Triangle& tri = m_triangles[i];
-            vec3 v1 = m_vertices[tri.VertexIdx.x()].Position;
-            vec3 v2 = m_vertices[tri.VertexIdx.y()].Position;
-            vec3 v3 = m_vertices[tri.VertexIdx.z()].Position;
-            vec3 normal = (v2 - v1).cross(v3 - v1).normalize();
-            m_vertices[tri.VertexIdx.x()].Normal += normal;
-            m_vertices[tri.VertexIdx.y()].Normal += normal;
-            m_vertices[tri.VertexIdx.z()].Normal += normal;
-            // normalize normal
-            // m_vertices[tri.VertexIdx.x()].Normal = m_vertices[tri.VertexIdx.x()].Normal.normalize();
-            // m_vertices[tri.VertexIdx.y()].Normal = m_vertices[tri.VertexIdx.y()].Normal.normalize();
-            // m_vertices[tri.VertexIdx.z()].Normal = m_vertices[tri.VertexIdx.z()].Normal.normalize();
+            vec3 v1 = m_vertices[tri.VertexIdx.x].Position;
+            vec3 v2 = m_vertices[tri.VertexIdx.y].Position;
+            vec3 v3 = m_vertices[tri.VertexIdx.z].Position;
+            vec3 normal = normalize(cross(v2 - v1, v3 - v1));
+            m_vertices[tri.VertexIdx.x].Normal += normal;
+            m_vertices[tri.VertexIdx.y].Normal += normal;
+            m_vertices[tri.VertexIdx.z].Normal += normal;
         }
         cout << "[INFO] obj file loaded: " << filename << " (vt: " << m_vertices.size() << ", tri: " << m_triangles.size() << ")" << endl;
         return true;
@@ -86,10 +83,10 @@ namespace RenderSpace {
         ofstream ofs(filename);
         // save obj file by m_vertices and m_triangles
         for (auto& v : m_vertices) {
-            ofs << "v " << v.Position.x() << " " << v.Position.y() << " " << v.Position.z() << endl;
+            ofs << "v " << v.Position.x << " " << v.Position.y << " " << v.Position.z << endl;
         }
         for (auto& tri : m_triangles) {
-            ofs << "f " << tri.VertexIdx.x() + 1 << " " << tri.VertexIdx.y() + 1 << " " << tri.VertexIdx.z() + 1 << endl;
+            ofs << "f " << tri.VertexIdx.x + 1 << " " << tri.VertexIdx.y + 1 << " " << tri.VertexIdx.z + 1 << endl;
         }
         ofs.close();
 
