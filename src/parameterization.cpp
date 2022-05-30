@@ -135,8 +135,27 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
     for (auto& edge : edge_bound) {
         _accumulate_length +=
             vertices[edge.first].Position.dist(vertices[edge.second].Position);
-        float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
-        param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
+        // float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
+        // param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
+
+        // map to rectangle bound
+        float scale = 10; // circle radius or rectangle width
+        vec2 bound_point(0.0, 0.0);
+        float ratio = _accumulate_length / m_bound_length;
+        if (ratio < 0.25) {
+            bound_point.first = -(scale / 2) + scale * (ratio / 0.25);
+            bound_point.second = -(scale / 2);
+        } else if (ratio < 0.5) {
+            bound_point.first = (scale / 2);
+            bound_point.second = -(scale / 2) + scale * ((ratio - 0.25) / 0.25);
+        } else if (ratio < 0.75) {
+            bound_point.first = (scale / 2) - scale * ((ratio - 0.5) / 0.25);
+            bound_point.second = (scale / 2);
+        } else {
+            bound_point.first = -(scale / 2);
+            bound_point.second = (scale / 2) - scale * ((ratio - 0.75) / 0.25);
+        }
+        param_bound.push_back(bound_point);
     }
 }
 
