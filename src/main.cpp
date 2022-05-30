@@ -3,14 +3,16 @@
 using namespace RenderSpace;
 
 int main() {
-    Mesh ori;
-    Mesh tar;
+    Mesh uns_mesh;
+    Mesh param_mesh;
+    Mesh str_mesh;
 
-    ori.load_OBJ("models/model.obj");
+    uns_mesh.load_OBJ("models/uns.obj");
 
-    Parameterization param(&ori, &tar);
-    param.parameterize();
+    Parameterization pmethod(&uns_mesh, &param_mesh, &str_mesh);
+    pmethod.parameterize();
 
-    tar.save_OBJ("models/model_param.obj");
+    param_mesh.save_OBJ("models/param.obj");
+    str_mesh.save_OBJ("models/str.obj");
     return 0;
 }

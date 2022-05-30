@@ -31,14 +31,16 @@ namespace RenderSpace {
     class Parameterization {
     public:
         Parameterization() = default;
-        Parameterization(Mesh* ori, Mesh* tar);
+        Parameterization(Mesh* uns_mesh, Mesh* uns_param, Mesh* str_mesh);
 
         ~Parameterization();
 
         void parameterize();
 
+        void resample(uint32_t num_samples);
+
     private:
-        // 标记ori面中的边缘与非边缘
+        // 标记uns_mesh面中的边缘与非边缘
         void _remark_edges(std::vector<OrderedEdge>&, std::vector<OrderedEdge>&);
         // 对边缘边，从第一个边缘点开始 按拓扑关系进行重新排序
         void _topology_reorder(std::vector<OrderedEdge>&);
@@ -71,8 +73,8 @@ namespace RenderSpace {
             const std::vector<glm::vec2>& f_2
         );
 
-        // Gauss-Seidel 迭代求解方程组
-        void Gauss_Seidel_Iteration(
+        // Jacobi 迭代求解方程组
+        void Jacobi_Iteration(
             const std::vector<int>& r_idx,
             const std::vector<int>& c_idx,
             std::vector<glm::vec2>& f,
@@ -81,8 +83,8 @@ namespace RenderSpace {
         );
 
         // 通过vt_inner, vt_bound, param_inner, param_bound
-        // 构建mesh:tar的拓扑结构
-        void _build_mesh(
+        // 构建mesh:uns_param的拓扑结构
+        void _build_param_mesh(
             const std::vector<int>& vt_inner,
             const std::vector<int>& vt_bound,
             const std::vector<glm::vec2>& param_inner,
@@ -103,8 +105,11 @@ namespace RenderSpace {
         std::unordered_map<int, float> m_weights_diag; // 边缘对角线权重
 
     private:
-        Mesh* m_ori;
-        Mesh* m_tar;
+        Mesh* m_uns_mesh;
+        Mesh* m_param_mesh;
+        Mesh* m_str_mesh;
+
+        float m_scale; // width of rectangle
     };
 }
 

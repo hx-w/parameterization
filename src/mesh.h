@@ -8,9 +8,6 @@
 
 namespace RenderSpace {
     typedef std::pair<int, int> OrderedEdge; // v1, v2; v1<v2
-    // typedef Coords<double> vec3;
-    // typedef Coords<uint32_t> uvec3;
-    // typedef std::pair<float, float> vec2;
 
     struct Vertex {
         Vertex() = default;

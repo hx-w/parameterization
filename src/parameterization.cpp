@@ -12,8 +12,8 @@ using namespace std;
 using namespace glm;
 
 namespace RenderSpace {
-Parameterization::Parameterization(Mesh* ori, Mesh* tar)
-    : m_ori(ori), m_tar(tar) {}
+Parameterization::Parameterization(Mesh* uns_mesh, Mesh* param_mesh, Mesh* str_mesh)
+    : m_uns_mesh(uns_mesh), m_param_mesh(param_mesh), m_str_mesh(str_mesh), m_scale(10) {}
 
 Parameterization::~Parameterization() {}
 
@@ -44,7 +44,11 @@ void Parameterization::parameterize() {
     _solve_Laplacian_equation(vt_inner, vt_inner, param_inner, vt_inner,
                               vt_bound, param_bound);
     cout << "building mesh" << endl;
-    _build_mesh(vt_inner, vt_bound, param_inner, param_bound);
+    _build_param_mesh(vt_inner, vt_bound, param_inner, param_bound);
+}
+
+void Parameterization::resample(uint32_t num_samples) {
+
 }
 
 void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound,
@@ -53,7 +57,7 @@ void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound,
     set<OrderedEdge> edge_inner_set;
     // 构造Edge集合，判断只与一个三角形相邻的边
     unordered_map<OrderedEdge, int, pair_hash> edge_count_map;
-    const auto& trias = m_ori->get_triangles();
+    const auto& trias = m_uns_mesh->get_triangles();
     for (auto& tri : trias) {
         for (int i = 0; i < 3; ++i) {
             int vidx = std::min(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
@@ -98,7 +102,7 @@ void Parameterization::_topology_reorder(vector<OrderedEdge>& edge_bound) {
     set<int> visited;
 
     // 顺带计算边缘总长度
-    const auto& vertices = m_ori->get_vertices();
+    const auto& vertices = m_uns_mesh->get_vertices();
     m_bound_length = 0;
 
     while (visited.count(vidx) == 0) {
@@ -125,7 +129,7 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
     if (edge_bound.empty())
         return;
     // 参数平面 边缘点 根据edge_bound 顺序计算得到
-    const auto& vertices = m_ori->get_vertices();
+    const auto& vertices = m_uns_mesh->get_vertices();
     // 三维空间中网格的边缘会被映射到二维参数平面的单位圆上
     // param_x^j = sin(\theta^j)
     // param_y^j = cos(\theta^j)
@@ -140,21 +144,20 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
         // param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
 
         // map to rectangle bound
-        float scale = 10; // circle radius or rectangle width
         vec2 bound_point(0.0, 0.0);
         float ratio = _accumulate_length / m_bound_length;
         if (ratio < 0.25) {
-            bound_point.x = -(scale / 2) + scale * (ratio / 0.25);
-            bound_point.y = -(scale / 2);
+            bound_point.x = -(m_scale / 2) + m_scale * (ratio / 0.25);
+            bound_point.y = -(m_scale / 2);
         } else if (ratio < 0.5) {
-            bound_point.x = (scale / 2);
-            bound_point.y = -(scale / 2) + scale * ((ratio - 0.25) / 0.25);
+            bound_point.x = (m_scale / 2);
+            bound_point.y = -(m_scale / 2) + m_scale * ((ratio - 0.25) / 0.25);
         } else if (ratio < 0.75) {
-            bound_point.x = (scale / 2) - scale * ((ratio - 0.5) / 0.25);
-            bound_point.y = (scale / 2);
+            bound_point.x = (m_scale / 2) - m_scale * ((ratio - 0.5) / 0.25);
+            bound_point.y = (m_scale / 2);
         } else {
-            bound_point.x = -(scale / 2);
-            bound_point.y = (scale / 2) - scale * ((ratio - 0.75) / 0.25);
+            bound_point.x = -(m_scale / 2);
+            bound_point.y = (m_scale / 2) - m_scale * ((ratio - 0.75) / 0.25);
         }
         param_bound.push_back(bound_point);
     }
@@ -173,8 +176,8 @@ void Parameterization::_init_weights(const vector<OrderedEdge>& edge_bound,
      *        \alpha(vj, vi) = angle(vec(vj, vk), vec(vk, vi))
      * weights[(vi, vj)] = [cot(\alpha(vi, vj)) + cot(\alpha(vj, vi))] / 2
      */
-    const auto& vertices = m_ori->get_vertices();
-    const auto& triangles = m_ori->get_triangles();
+    const auto& vertices = m_uns_mesh->get_vertices();
+    const auto& triangles = m_uns_mesh->get_triangles();
     unordered_set<Triangle, trias_hash> trias_set(triangles.begin(),
                                                   triangles.end());
     /** 存在这样一个事实：
@@ -314,10 +317,10 @@ void Parameterization::_solve_Laplacian_equation(
     f_1.resize(mat1_col_count, vec2(0.5f, 0.5f));
     // 进行迭代求解
 
-    Gauss_Seidel_Iteration(r_idx_1, c_idx_1, f_1, _value_mat, 0.0001f);
+    Jacobi_Iteration(r_idx_1, c_idx_1, f_1, _value_mat, 0.0001f);
 }
 
-void Parameterization::Gauss_Seidel_Iteration(const vector<int>& r_idx,
+void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
                                               const vector<int>& c_idx,
                                               vector<vec2>& f,
                                               const vector<vec2>& b,
@@ -357,7 +360,7 @@ void Parameterization::Gauss_Seidel_Iteration(const vector<int>& r_idx,
     }
 }
 
-void Parameterization::_build_mesh(const vector<int>& vt_inner,
+void Parameterization::_build_param_mesh(const vector<int>& vt_inner,
                                    const vector<int>& vt_bound,
                                    const vector<vec2>& param_inner,
                                    const vector<vec2>& param_bound) {
@@ -372,10 +375,10 @@ void Parameterization::_build_mesh(const vector<int>& vt_inner,
         vt_bound_idx[vt_bound[i]] = i;
     }
 
-    auto& tar_vertices = m_tar->get_vertices();
-    auto& tar_tris = m_tar->get_triangles();
-    const auto& ori_vertices = m_ori->get_vertices();
-    const auto& ori_tris = m_ori->get_triangles();
+    auto& tar_vertices = m_param_mesh->get_vertices();
+    auto& tar_tris = m_param_mesh->get_triangles();
+    const auto& ori_vertices = m_uns_mesh->get_vertices();
+    const auto& ori_tris = m_uns_mesh->get_triangles();
     tar_vertices.clear();
 
     // 三角面片索引应相同
