@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include "coords.h"
 #include "glm/glm.hpp"
 
 namespace RenderSpace {
