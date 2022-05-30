@@ -11,6 +11,7 @@ int main() {
 
     Parameterization pmethod(&uns_mesh, &param_mesh, &str_mesh);
     pmethod.parameterize();
+    pmethod.resample(100);
 
     param_mesh.save_OBJ("models/param.obj");
     str_mesh.save_OBJ("models/str.obj");

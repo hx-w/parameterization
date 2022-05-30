@@ -48,7 +48,18 @@ void Parameterization::parameterize() {
 }
 
 void Parameterization::resample(uint32_t num_samples) {
+    Mesh sample_mesh;
+    auto& vertices = sample_mesh.get_vertices();
 
+    for (auto ir = 0; ir < num_samples; ++ir) {
+        for (auto ic = 0; ic < num_samples; ++ic) {
+            auto x = m_scale * (ic + 0.5) / num_samples - m_scale / 2;
+            auto y = m_scale * (ir + 0.5) / num_samples - m_scale / 2;
+            vertices.push_back(Vertex(vec3(x, y, 0), vec3(1.0), vec3(0.0)));
+        }
+    }
+
+    sample_mesh.save_OBJ("models/sample.obj");
 }
 
 void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound,
