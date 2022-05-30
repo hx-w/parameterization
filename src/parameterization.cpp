@@ -49,13 +49,50 @@ void Parameterization::parameterize() {
 
 void Parameterization::resample(uint32_t num_samples) {
     Mesh sample_mesh;
-    auto& vertices = sample_mesh.get_vertices();
+    auto& uns_vertices = m_uns_mesh->get_vertices();
+    auto& param_vertices = m_param_mesh->get_vertices();
+    auto& sample_vertices = sample_mesh.get_vertices();
+    auto& str_vertices = m_str_mesh->get_vertices();
+    auto& str_trias = m_str_mesh->get_triangles();
 
     for (auto ir = 0; ir < num_samples; ++ir) {
         for (auto ic = 0; ic < num_samples; ++ic) {
+            // 在参数平面上的点
             auto x = m_scale * (ic + 0.5) / num_samples - m_scale / 2;
             auto y = m_scale * (ir + 0.5) / num_samples - m_scale / 2;
-            vertices.push_back(Vertex(vec3(x, y, 0), vec3(1.0), vec3(0.0)));
+            sample_vertices.push_back(Vertex(vec3(x, y, 0), vec3(1.0), vec3(0.0)));
+            // 逆映射到三维空间
+            const Triangle spot_trias = _which_trias_in(vec2(x, y));
+            auto tot_area = _trias_area(param_vertices[spot_trias.VertexIdx.x].Position,
+                                        param_vertices[spot_trias.VertexIdx.y].Position,
+                                        param_vertices[spot_trias.VertexIdx.z].Position);
+            auto vi_area = _trias_area(vec3(x, y, 0),
+                                       param_vertices[spot_trias.VertexIdx.y].Position,
+                                       param_vertices[spot_trias.VertexIdx.z].Position);
+            auto vj_area = _trias_area(param_vertices[spot_trias.VertexIdx.x].Position,
+                                       vec3(x, y, 0),
+                                       param_vertices[spot_trias.VertexIdx.z].Position);
+            auto vk_area = _trias_area(param_vertices[spot_trias.VertexIdx.x].Position,
+                                        param_vertices[spot_trias.VertexIdx.y].Position,
+                                        vec3(x, y, 0));
+            vec3 str_point = (vi_area * uns_vertices[spot_trias.VertexIdx.x].Position +
+                              vj_area * uns_vertices[spot_trias.VertexIdx.y].Position +
+                              vk_area * uns_vertices[spot_trias.VertexIdx.z].Position) / tot_area;
+            
+            // shift
+            str_point += vec3(10.0, 0.0, 0.0);
+            str_vertices.push_back(Vertex(str_point, vec3(1.0), vec3(0.0)));
+            /**
+             *  retopology
+             *  [idx-max_col-1] ----- [idx-max_col]
+             *   |            /        |
+             *  [idx-1] ------------- [idx] 
+             */
+            if (ir > 0 && ic > 0) {
+                auto idx = sample_vertices.size() - 1;
+                str_trias.push_back(Triangle(idx, idx - num_samples, idx - 1));
+                str_trias.push_back(Triangle(idx - 1, idx - num_samples, idx - num_samples - 1));
+            }
         }
     }
 
@@ -456,4 +493,37 @@ float Parameterization::_angle_between(const vec3& va,
     float _rad = acos(_cos);
     return _rad;
 }
+
+float Parameterization::_trias_area(const vec3& v0, const vec3& v1, const vec3& v2) const {
+    float _a = length(v1 - v0);
+    float _b = length(v2 - v0);
+    float _c = length(v2 - v1);
+    float _s = (_a + _b + _c) / 2.0f;
+    return sqrt(_s * (_s - _a) * (_s - _b) * (_s - _c));
+}
+
+const Triangle Parameterization::_which_trias_in(const vec2& pos) const {
+    const auto& _vertices = m_param_mesh->get_vertices();
+    const auto& _tris = m_param_mesh->get_triangles();
+    const int _sz = _vertices.size();
+    for (const auto& tri : _tris) {
+        const vec3& _v0 = _vertices[tri.VertexIdx.x].Position;
+        const vec3& _v1 = _vertices[tri.VertexIdx.y].Position;
+        const vec3& _v2 = _vertices[tri.VertexIdx.z].Position;
+        // judge whether pos in triangle [_v0, _v1, _v2]
+        auto s = (_v0.x - _v2.x) * (pos.y - _v2.y) - (_v0.y - _v2.y) * (pos.x - _v2.x);
+        auto t = (_v1.x - _v0.x) * (pos.y - _v0.y) - (_v1.y - _v0.y) * (pos.x - _v0.x);
+
+        if ((s < 0) != (t < 0) && s != 0 && t != 0) {
+            continue;
+        }
+
+        auto d = (_v2.x - _v1.x) * (pos.y - _v1.y) - (_v2.y - _v1.y) * (pos.x - _v1.x);
+        if (d == 0 || (d < 0) == (s + t <= 0)) {
+            return tri;
+        }
+    }
+    return Triangle(0.0, 0.0, 0.0);
+}
+
 }  // namespace RenderSpace

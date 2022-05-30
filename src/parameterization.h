@@ -97,6 +97,9 @@ namespace RenderSpace {
         float _cot(float) const;
         float _angle_between(const glm::vec3&, const glm::vec3&, const glm::vec3&) const;
 
+        float _trias_area(const glm::vec3&, const glm::vec3&, const glm::vec3&) const;
+        const Triangle _which_trias_in(const glm::vec2& pos) const;
+
     private:
         // 中间结果
         float m_bound_length; // 边缘总长度
