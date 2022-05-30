@@ -7,6 +7,8 @@
 #include <set>
 #include <unordered_set>
 #include <utility>
+#include <chrono>
+#include <ctime>
 
 using namespace std;
 using namespace glm;
@@ -396,9 +398,10 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
     assert(row_max == col_max);
     assert(row_max == f_max);
 
-    const int _max_iter = 1000;  // 最大迭代次数
+    const int _max_iter = 100;  // 最大迭代次数
     for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
         float _residual = 0.0f;
+        auto start = chrono::system_clock::now();
         vector<vec2> _new_f(f);
         // 对于x_{f_max}^{_iter_count}
 #pragma omp parallel for reduction(+:_residual)
@@ -416,7 +419,10 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
             _new_f[ir] = _val;
         }
         f.assign(_new_f.begin(), _new_f.end());
-        cout << "[INFO] iter: " << _iter_count << "  residual: " << _residual << endl;
+        auto end = chrono::system_clock::now();
+        chrono::duration<double> elapsed_seconds = end - start;
+        time_t end_time = chrono::system_clock::to_time_t(end);
+        cout << ">> " << ctime(&end_time) << _iter_count << "/" << _max_iter << " ==> " << _residual << "  | cost " << elapsed_seconds.count() << endl;
         if (_residual < epsilon) {
             break;
         }

@@ -1,5 +1,6 @@
 main
 test.sh
+test.bat
 .vscode/
 *.bak
 # Prerequisites
