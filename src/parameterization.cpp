@@ -141,32 +141,50 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
         return;
     // 参数平面 边缘点 根据edge_bound 顺序计算得到
     const auto& vertices = m_uns_mesh->get_vertices();
-    // 三维空间中网格的边缘会被映射到二维参数平面的单位圆上
+    // 三维空间中网格的边缘会被映射到二维参数平面的单位圆/或正方形边缘
     // param_x^j = sin(\theta^j)
     // param_y^j = cos(\theta^j)
     // \theta^j = 2 * \pi (\sum_{i=1}^{j} (vb_{i + 1} - vb_{i})) /
     // m_bound_length 其中 vb_{i + 1} - vb_{i} 为边缘点的距离
     param_bound.clear();
     float _accumulate_length = 0.0;
+    bool disturbed_1 = false;
+    bool disturbed_2 = false;
+    bool disturbed_3 = false;
     for (auto& edge : edge_bound) {
         _accumulate_length +=
             length(vertices[edge.first].Position - vertices[edge.second].Position);
         // float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
         // param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
 
-        // map to rectangle bound
+        /**
+         * mapping to rectangle bound
+         * make sure every corner of rect is mapped to a vertex
+         */
         vec2 bound_point(0.0, 0.0);
         float ratio = _accumulate_length / m_bound_length;
         if (ratio < 0.25) {
             bound_point.x = -(m_scale / 2) + m_scale * (ratio / 0.25);
             bound_point.y = -(m_scale / 2);
         } else if (ratio < 0.5) {
+            if (!disturbed_1) {
+                disturbed_1 = true;
+                ratio = 0.25;
+            }
             bound_point.x = (m_scale / 2);
             bound_point.y = -(m_scale / 2) + m_scale * ((ratio - 0.25) / 0.25);
         } else if (ratio < 0.75) {
+            if (!disturbed_2) {
+                disturbed_2 = true;
+                ratio = 0.5;
+            }
             bound_point.x = (m_scale / 2) - m_scale * ((ratio - 0.5) / 0.25);
             bound_point.y = (m_scale / 2);
         } else {
+            if (!disturbed_3) {
+                disturbed_3 = true;
+                ratio = 0.75;
+            }
             bound_point.x = -(m_scale / 2);
             bound_point.y = (m_scale / 2) - m_scale * ((ratio - 0.75) / 0.25);
         }
