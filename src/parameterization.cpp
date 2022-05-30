@@ -314,9 +314,6 @@ void Parameterization::_solve_Laplacian_equation(
 
     vector<vec2> _value_mat;
     for (int ir = 0; ir < mat2_row_count; ++ir) {
-        if (ir % 1000 == 0) {
-            cout << "iter: " << ir << " / " << mat2_row_count << endl;
-        }
         vec2 _row_vec(0.0, 0.0);
         for (int ic = 0; ic < mat2_col_count; ++ic) {
             float _v = _Laplacian_val(r_idx_2[ir], c_idx_2[ic]);
