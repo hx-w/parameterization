@@ -19,7 +19,7 @@ Parameterization::Parameterization(Mesh* uns_mesh, Mesh* param_mesh, Mesh* str_m
 
 Parameterization::~Parameterization() {}
 
-void Parameterization::parameterize() {
+void Parameterization::parameterize(ParamMethod pmodel) {
     vector<OrderedEdge> edge_bound;
     vector<OrderedEdge> edge_inner;
     // 先获取边缘和非边缘边
@@ -33,7 +33,8 @@ void Parameterization::parameterize() {
     // 初始化weights
     // weight[(i, j)] = weight[(j, i)], 故存储时令i < j
     // 这里元素量太大，可以使用map进行优化，但是map对于key的查找有问题(?)
-    _init_weights(edge_bound, edge_inner);
+    _init_weights(edge_bound, edge_inner, pmodel);
+
     // 将边集 转换为 点集 保存映射的顺序关系
     // 其中边缘点的顺序不能变，应与param_bound一致
     vector<int> vt_bound;
@@ -231,8 +232,10 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
     }
 }
 
-void Parameterization::_init_weights(const vector<OrderedEdge>& edge_bound,
-                                     const vector<OrderedEdge>& edge_inner) {
+void Parameterization::_init_weights(
+    const vector<OrderedEdge>& edge_bound,
+    const vector<OrderedEdge>& edge_inner,
+    const ParamMethod pmodel) {
     /**
      * weights 的计算满足以下约束
      * 1. weights的key记作(vi, vj)，满足vi <= vj
@@ -269,8 +272,8 @@ void Parameterization::_init_weights(const vector<OrderedEdge>& edge_bound,
         adj_list[edge.second].insert(edge.first);
     }
 
-    // weights只需从inner构造 [X] bound 也需要
-    for (auto edge : tot_edge) {
+    // weights只需从inner构造
+    for (auto edge : edge_inner) {
         int vi = std::min(edge.first, edge.second);
         int vj = std::max(edge.first, edge.second);
         vector<int> adj_vt;
@@ -280,30 +283,44 @@ void Parameterization::_init_weights(const vector<OrderedEdge>& edge_bound,
                 adj_vt.push_back(adj_v);
             }
         }
-        if (adj_vt.size() > 2) {
+        if (adj_vt.size() != 2) {
             cout << "Error: edge_inner " << vi << " " << vj << ": "
                  << adj_vt.size() << endl;
             continue;
         }
 
         float _weight = 0.0f;
-        for (auto vk : adj_vt) {
-            _weight += _cot(_angle_between(vertices[vi].Position,
-                                           vertices[vj].Position,
-                                           vertices[vk].Position));
-        }
 
-        _weight /= adj_vt.size();
+        if (pmodel == ParamMethod::Laplace) {
+            for (auto vk : adj_vt) {
+                _weight += _cot(_angle_between(vertices[vi].Position,
+                                            vertices[vj].Position,
+                                            vertices[vk].Position));
+            }
+            _weight /= adj_vt.size();
 
-        if (fabs(_weight) < 1e-6) {
-            cout << "too low: edge_inner " << vi << " " << vj << ": " << _weight
-                 << endl;
+            m_weights[OrderedEdge(vi, vj)] = _weight;
+            // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian
+            // matrix的计算 默认值是0
+            m_weights_diag[vi] += _weight;
+            m_weights_diag[vj] += _weight;
         }
-        m_weights[OrderedEdge(vi, vj)] = _weight;
-        // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian
-        // matrix的计算 默认值是0
-        m_weights_diag[vi] += _weight;
-        m_weights_diag[vj] += _weight;
+        else if (pmodel == ParamMethod::Spring) {
+            // compute \lambda_{ij} = D_{ij} / \sum_{k \in N_i} D_{ik}
+            // assume D_{ij} = 1
+            float sum_weight = 0.0f;
+            for (auto vk : adj_list[vi]) {
+                sum_weight += 1.0f; // modify if D_{ij} != 1
+            }
+            float _weight = 1.0f / sum_weight;
+            m_weights[OrderedEdge(vi, vj)] = _weight;
+            m_weights_diag[vi] += _weight;
+            m_weights_diag[vj] += _weight;
+        }
+        else {
+            // unknown model
+            assert(false);
+        }
     }
 }
 
@@ -422,6 +439,7 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
         auto end = chrono::system_clock::now();
         chrono::duration<double> elapsed_seconds = end - start;
         time_t end_time = chrono::system_clock::to_time_t(end);
+        if (_iter_count % 50 == 0)
         cout << ">> " << ctime(&end_time) << _iter_count << "/" << _max_iter << " ==> " << _residual << "  | cost " << elapsed_seconds.count() << endl;
         if (_residual < epsilon) {
             break;

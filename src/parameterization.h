@@ -10,6 +10,11 @@
 #endif
 
 namespace RenderSpace {
+    enum ParamMethod {
+        Spring,
+        Laplace
+    };
+
     struct pair_hash {
         template <class T1, class T2>
         std::size_t operator() (const std::pair<T1, T2> &p) const {
@@ -35,7 +40,7 @@ namespace RenderSpace {
 
         ~Parameterization();
 
-        void parameterize();
+        void parameterize(ParamMethod);
 
         void resample(uint32_t num_samples);
 
@@ -49,7 +54,8 @@ namespace RenderSpace {
         // 初始化 计算weights
         void _init_weights(
             const std::vector<OrderedEdge>&,
-            const std::vector<OrderedEdge>&
+            const std::vector<OrderedEdge>&,
+            const ParamMethod
         );
 
         // edge to vertex
