@@ -88,6 +88,14 @@ namespace RenderSpace {
             const float epsilon // 允许的误差
         );
 
+        // Doolittle分解 求解方程组    
+        void Doolittle_solver(
+            const std::vector<int>& r_idx,
+            const std::vector<int>& c_idx,
+            std::vector<glm::vec2>& f,
+            const std::vector<glm::vec2>& b
+        );
+
         // 通过vt_inner, vt_bound, param_inner, param_bound
         // 构建mesh:uns_param的拓扑结构
         void _build_param_mesh(
@@ -97,7 +105,7 @@ namespace RenderSpace {
             const std::vector<glm::vec2>& param_bound
         );
 
-        float _Laplacian_val(int i, int j);
+        inline float _Laplacian_val(int i, int j);
 
         // cotangent
         float _cot(float) const;

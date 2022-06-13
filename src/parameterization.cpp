@@ -401,10 +401,10 @@ void Parameterization::_solve_Laplacian_equation(
 }
 
 void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
-                                              const vector<int>& c_idx,
-                                              vector<vec2>& f,
-                                              const vector<vec2>& b,
-                                              const float epsilon  // 允许的误差
+                                        const vector<int>& c_idx,
+                                        vector<vec2>& f,
+                                        const vector<vec2>& b,
+                                        const float epsilon  // 允许的误差
 ) {
     const int row_max = r_idx.size();
     const int col_max = c_idx.size();
@@ -413,7 +413,7 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
     assert(row_max == col_max);
     assert(row_max == f_max);
 
-    const int _max_iter = 50;  // 最大迭代次数
+    const int _max_iter = 500;  // 最大迭代次数
     for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
         float _residual = 0.0f;
         auto start = chrono::system_clock::now();
@@ -443,6 +443,20 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
             break;
         }
     }
+}
+
+void Parameterization::Doolittle_solver(const vector<int>& r_idx,
+                                        const vector<int>& c_idx,
+                                        vector<vec2>& f,
+                                        const vector<vec2>& b
+) {
+    const int row_max = r_idx.size();
+    const int col_max = c_idx.size();
+    const int f_max = f.size();
+    // row_max == col_max == f_max
+    assert(row_max == col_max);
+    assert(row_max == f_max);
+
 }
 
 void Parameterization::_build_param_mesh(const vector<int>& vt_inner,
@@ -485,13 +499,10 @@ void Parameterization::_build_param_mesh(const vector<int>& vt_inner,
     }
 }
 
-float Parameterization::_Laplacian_val(int i, int j) {
-    if (i > j)
-        swap(i, j);
+inline float Parameterization::_Laplacian_val(int i, int j) {
+    if (i > j) swap(i, j);
     auto iter = m_weights.find(OrderedEdge(i, j));
-    if (iter == m_weights.end()) {
-        return 0.0f;
-    } else {
+    if (iter != m_weights.end()) {
         return iter->second;
     }
     return 0;
