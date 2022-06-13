@@ -114,11 +114,7 @@ void Parameterization::_remark_edges(vector<OrderedEdge>& edge_bound,
             int vidx = std::min(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
             int vidx_next = std::max(tri.VertexIdx[i], tri.VertexIdx[(i + 1) % 3]);
             OrderedEdge edge(vidx, vidx_next);
-            if (edge_count_map.find(edge) == edge_count_map.end()) {
-                edge_count_map[edge] = 1;
-            } else {
-                edge_count_map[edge]++;
-            }
+            edge_count_map[edge]++;
         }
     }
     for (auto& [edge, count] : edge_count_map) {
@@ -295,11 +291,13 @@ void Parameterization::_init_weights(
 
         if (pmodel == ParamMethod::Laplace) {
             for (auto vk : adj_vt) {
-                _weight += _cot(_angle_between(vertices[vi].Position,
-                                            vertices[vj].Position,
-                                            vertices[vk].Position));
+                _weight += _cot(_angle_between(
+                    vertices[vi].Position,
+                    vertices[vj].Position,
+                    vertices[vk].Position
+                ));
             }
-            _weight /= adj_vt.size();
+            _weight /= 2.0f;
         }
         else if (pmodel == ParamMethod::Spring) {
             // compute \lambda_{ij} = D_{ij} / \sum_{k \in N_i} D_{ik}
@@ -413,7 +411,17 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
     assert(row_max == col_max);
     assert(row_max == f_max);
 
-    const int _max_iter = 500;  // 最大迭代次数
+    // idx adj list
+    unordered_map<int, vector<int>> _idx_adj_list;
+    for (int i = 0; i < row_max; ++i) {
+        for (int j = 0; j < col_max; ++j) {
+            if (_Laplacian_val(r_idx[i], c_idx[j]) != 0.0f) {
+                _idx_adj_list[i].emplace_back(j);
+            } 
+        }
+    }
+
+    const int _max_iter = 10;  // 最大迭代次数
     for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
         float _residual = 0.0f;
         auto start = chrono::system_clock::now();
@@ -422,7 +430,8 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
 #pragma omp parallel for reduction(+:_residual)
         for (int ir = 0; ir < f_max; ++ir) {
             vec2 _val(0.0, 0.0);
-            for (int ic = 0; ic < f_max; ++ic) {
+            for (auto ic : _idx_adj_list[ir]) {
+            // for (int ic = 0; ic < f_max; ++ic) {
                 if (ir == ic)
                     continue;
                 float _lp = _Laplacian_val(r_idx[ir], c_idx[ic]);
@@ -437,7 +446,7 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
         auto end = chrono::system_clock::now();
         chrono::duration<double> elapsed_seconds = end - start;
         time_t end_time = chrono::system_clock::to_time_t(end);
-        if (_iter_count % 50 == 0)
+        // if (_iter_count % 50 == 0)
         cout << ">> " << ctime(&end_time) << _iter_count << "/" << _max_iter << " ==> " << _residual << "  | cost " << elapsed_seconds.count() << endl;
         if (_residual < epsilon) {
             break;
