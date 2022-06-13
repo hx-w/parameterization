@@ -194,8 +194,10 @@ void Parameterization::_parameterize_bound(vector<OrderedEdge>& edge_bound,
     for (auto& edge : edge_bound) {
         _accumulate_length +=
             length(vertices[edge.first].Position - vertices[edge.second].Position);
+
         // float _theta = 2 * M_PI * _accumulate_length / m_bound_length;
         // param_bound.push_back(vec2(sin(_theta) * 10, cos(_theta) * 10));
+        // continue;
 
         /**
          * mapping to rectangle bound
@@ -298,12 +300,6 @@ void Parameterization::_init_weights(
                                             vertices[vk].Position));
             }
             _weight /= adj_vt.size();
-
-            m_weights[OrderedEdge(vi, vj)] = _weight;
-            // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian
-            // matrix的计算 默认值是0
-            m_weights_diag[vi] += _weight;
-            m_weights_diag[vj] += _weight;
         }
         else if (pmodel == ParamMethod::Spring) {
             // compute \lambda_{ij} = D_{ij} / \sum_{k \in N_i} D_{ik}
@@ -312,15 +308,17 @@ void Parameterization::_init_weights(
             for (auto vk : adj_list[vi]) {
                 sum_weight += 1.0f; // modify if D_{ij} != 1
             }
-            float _weight = 1.0f / sum_weight;
-            m_weights[OrderedEdge(vi, vj)] = _weight;
-            m_weights_diag[vi] += _weight;
-            m_weights_diag[vj] += _weight;
+            _weight = 1.0f / sum_weight;
         }
         else {
             // unknown model
             assert(false);
         }
+        m_weights[OrderedEdge(vi, vj)] = -_weight;
+        // weights中 i=j无意义，但是可以预存ij相等的情况，方便Laplacian
+        // matrix的计算 默认值是0
+        m_weights[OrderedEdge(vi, vi)] += _weight;
+        m_weights[OrderedEdge(vj, vj)] += _weight;
     }
 }
 
@@ -415,7 +413,7 @@ void Parameterization::Jacobi_Iteration(const vector<int>& r_idx,
     assert(row_max == col_max);
     assert(row_max == f_max);
 
-    const int _max_iter = 100;  // 最大迭代次数
+    const int _max_iter = 50;  // 最大迭代次数
     for (int _iter_count = 0; _iter_count < _max_iter; ++_iter_count) {
         float _residual = 0.0f;
         auto start = chrono::system_clock::now();
@@ -490,15 +488,11 @@ void Parameterization::_build_param_mesh(const vector<int>& vt_inner,
 float Parameterization::_Laplacian_val(int i, int j) {
     if (i > j)
         swap(i, j);
-    if (i != j) {
-        auto iter = m_weights.find(OrderedEdge(i, j));
-        if (iter == m_weights.end()) {
-            return 0.0f;
-        } else {
-            return -iter->second;
-        }
+    auto iter = m_weights.find(OrderedEdge(i, j));
+    if (iter == m_weights.end()) {
+        return 0.0f;
     } else {
-        return m_weights_diag.find(i)->second;
+        return iter->second;
     }
     return 0;
 }
