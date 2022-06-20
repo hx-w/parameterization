@@ -2,8 +2,9 @@
 #define PARAMETERIZATION_H
 
 #include "mesh.h"
-#include <map>
 #include <unordered_map>
+#include <unordered_set>
+#include <memory>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -13,6 +14,12 @@ namespace RenderSpace {
     enum ParamMethod {
         Spring,
         Laplace
+    };
+
+    enum BoundaryShape {
+        FreeBound,
+        FixBoundCircle,
+        FixBoundSquare
     };
 
     struct pair_hash {
@@ -36,17 +43,23 @@ namespace RenderSpace {
     class Parameterization {
     public:
         Parameterization() = default;
-        Parameterization(Mesh* uns_mesh, Mesh* uns_param, Mesh* str_mesh);
+        Parameterization(
+            std::shared_ptr<Mesh> uns_mesh,
+            std::shared_ptr<Mesh> uns_param,
+            std::shared_ptr<Mesh> str_mesh
+        );
 
         ~Parameterization();
 
-        void parameterize(ParamMethod);
+        bool parameterize(ParamMethod, float& progress, uint32_t num_samples);
 
         void resample(uint32_t num_samples);
 
     private:
         // 标记uns_mesh面中的边缘与非边缘
         void _remark_edges(std::vector<OrderedEdge>&, std::vector<OrderedEdge>&);
+        // 对于闭曲面 构造切割线 切成开曲面
+        void _cut_mesh_open(const std::vector<OrderedEdge>& tot_edge);
         // 对边缘边，从第一个边缘点开始 按拓扑关系进行重新排序
         void _topology_reorder(std::vector<OrderedEdge>&);
         // 将排序后的边缘边参数化到二维单位圆边缘
@@ -76,7 +89,9 @@ namespace RenderSpace {
             std::vector<glm::vec2>& f_1,  // 结果保存在这里
             const std::vector<int>& r_idx_2,
             const std::vector<int>& c_idx_2,
-            const std::vector<glm::vec2>& f_2
+            const std::vector<glm::vec2>& f_2,
+            float& progress,
+            uint32_t num_samples
         );
 
         // Jacobi 迭代求解方程组
@@ -85,15 +100,8 @@ namespace RenderSpace {
             const std::vector<int>& c_idx,
             std::vector<glm::vec2>& f,
             const std::vector<glm::vec2>& b,
-            const float epsilon // 允许的误差
-        );
-
-        // Doolittle分解 求解方程组    
-        void Doolittle_solver(
-            const std::vector<int>& r_idx,
-            const std::vector<int>& c_idx,
-            std::vector<glm::vec2>& f,
-            const std::vector<glm::vec2>& b
+            const float epsilon, // 允许的误差
+            const int max_iter // 最大迭代次数
         );
 
         // 通过vt_inner, vt_bound, param_inner, param_bound
@@ -105,7 +113,7 @@ namespace RenderSpace {
             const std::vector<glm::vec2>& param_bound
         );
 
-        inline float _Laplacian_val(int i, int j);
+        float _Laplacian_val(int i, int j);
 
         // cotangent
         float _cot(float) const;
@@ -114,19 +122,27 @@ namespace RenderSpace {
         float _trias_area(const glm::vec3&, const glm::vec3&, const glm::vec3&) const;
         const Triangle _which_trias_in(const glm::vec2& pos) const;
 
+        // a bad cutpath for genus = 0
+        void _find_cutpath(
+            std::vector<OrderedEdge>& cutpath,
+            std::unordered_map<int, std::unordered_set<int>>& adj_vlist,
+            int curr_vt = 1,
+            int depth = 3
+        );
+        void _build_mesh_by_cutpath(const std::vector<OrderedEdge>&);
+
     private:
         // 中间结果
         float m_bound_length; // 边缘总长度
-        // std::map<OrderedEdge, float> m_weights; // 边缘权重
         std::unordered_map<OrderedEdge, float, pair_hash> m_weights;
+        std::vector<std::vector<int>> m_cached_index;
 
     private:
-        Mesh* m_uns_mesh;
-        Mesh* m_param_mesh;
-        Mesh* m_str_mesh;
+        std::shared_ptr<Mesh> m_uns_mesh;
+        std::shared_ptr<Mesh> m_param_mesh;
+        std::shared_ptr<Mesh> m_str_mesh;
 
         float m_scale; // width of rectangle
     };
 }
-
 #endif
