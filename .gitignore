@@ -3,6 +3,7 @@ test.sh
 test.bat
 .vscode/
 *.bak
+.DS_Store
 # Prerequisites
 *.d
 
